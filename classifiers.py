@@ -24,14 +24,12 @@ algorithms = {
     "SVM": SVC(kernel='rbf', max_iter=100)
 }
 
-feature_num = [22, 34, 88]
-
 def generate_data(permission_num):
 
     traindata = pd.read_csv('./' + str(permission_num) + '/train.csv')
     testdata = pd.read_csv('./' + str(permission_num) + '/newTest.csv')
-    # traindata = traindata.sample(frac=1)
-    # traindata.describe().to_csv('./' + str(permission_num) + '/data_stats.csv')
+    if permission_num == 88:
+        traindata = traindata.sample(frac=1)
     return traindata, testdata
 
 def plot_data(permission_num, algo):
@@ -40,9 +38,6 @@ def plot_data(permission_num, algo):
 
     clf = algorithms[algo]
     clf.fit(X_train, y_train)
-    probas = clf.predict_proba(X_test)
-
-    # Now plot.
     skplt.estimators.plot_feature_importances(clf,
                                               feature_names=traindata.columns.tolist(),
                                               x_tick_rotation=90,
@@ -52,11 +47,11 @@ def plot_data(permission_num, algo):
     # skplt.metrics.plot_precision_recall_curve(y_test, probas)
     # plt.show()
 
-def plot_learning_process(permission_num):
+def plot_learning_process(permission_num, trainsize=None):
     traindata, testdata = generate_data(permission_num)
     fig, axs = plt.subplots(2,3, figsize=(12, 8), facecolor='w', edgecolor='k')
-    X_train, X_test, y_train, y_test = get_train_and_test(traindata, testdata, permission_num)
-    fig.tight_layout(pad=3.0)
+    X_train, X_test, y_train, y_test = get_train_and_test(traindata, testdata, permission_num, trainsize)
+    fig.tight_layout(pad=4.0)
     axs = axs.ravel()
     i = 0
     for algo in algorithms:
@@ -65,7 +60,6 @@ def plot_learning_process(permission_num):
         axs[i].set_title(algo)
         i += 1
     plt.show()
-
 
 
 def get_train_and_test(traindata, testdata, permission_num,train_size=None):
@@ -87,12 +81,15 @@ def get_train_and_test(traindata, testdata, permission_num,train_size=None):
     return traindata, testdata, trainlabel, testlabel
 
 
-def get_result(permission_num, size_list):
+def get_result(permission_num, size_list=None):
     result = {}
     traindata, testdata = generate_data(permission_num)
 
     for algo in algorithms:
-        result[algo] = {'accuracy':[], 'precision':[], 'recall':[], 'fscore':[], 'runtime':[]}
+        result[algo] = {'accuracy':[], 'precision':[], 'recall':[], 'fscore':[], 'runtime':[], 'TN':[], 'FN':[], 'TP':[], 'FP':[]}
+
+    if not size_list:
+        size_list = [traindata.shape[1]]
 
     for n in size_list:
         n = int(n)
@@ -103,6 +100,7 @@ def get_result(permission_num, size_list):
             clf = algorithms[algo]
             clf.fit(X_train, y_train)
             y_pred = clf.predict(X_test)
+
             result[algo]['runtime'].append(time.time() - start_time)
             accuracy = sklearn.metrics.accuracy_score(y_test, y_pred)
             result[algo]['accuracy'].append(accuracy)
@@ -110,25 +108,37 @@ def get_result(permission_num, size_list):
             result[algo]['precision'].append(report[0])
             result[algo]['recall'].append(report[1])
             result[algo]['fscore'].append(report[2])
-
+            CM = sklearn.metrics.confusion_matrix(y_test, y_pred)
+            result[algo]['TN'].append(CM[0][0])
+            result[algo]['FN'].append(CM[1][0])
+            result[algo]['TP'].append(CM[1][1])
+            result[algo]['FP'].append(CM[0][1])
     return result
 
 def avg_report(result):
-    data = {'accuracy':[], 'precision':[], 'recall':[], 'fscore':[], 'runtime':[]}
-    table = {'accuracy':[], 'precision':[], 'recall':[], 'fscore':[], 'runtime':[]}
+    table = {}
+    for key in result['DecisionTree'].keys():
+        table[key] = []
+
     for algo in algorithms:
         for key in result[algo].keys():
-            data[key].append((algo,sum(result[algo][key])/len(result[algo][key])))
             table[key].append(sum(result[algo][key])/len(result[algo][key]))
+    print(table)
     df = pd.DataFrame.from_dict(table, orient='index', columns=list(algorithms.keys()))
+    df.to_csv('result.csv')
     print(df)
+
+    max_value = max(table.get('accuracy', ''))
+
+    max_index = table.get('accuracy', '').index(max_value)
+
+    return list(algorithms.keys())[max_index]
 
 
 def plot_one_algo(ax, result, algo, stats, x):
     ax.plot(x, result[stats], 'o-', label=algo)
     ax.set_xlabel('sample size')
     ax.set_ylabel(stats)
-
 
 def plot_performance(result, x):
     fig = plt.figure(figsize = (10,8))
@@ -145,6 +155,8 @@ def plot_performance(result, x):
     fig.legend(lines, labels,
                loc = 'upper right')
     plt.show()
+
+def plot_runtime(result, x):
     for algo in algorithms:
         algo_result = result[algo]
         plt.plot(x, algo_result['runtime'], 'o-', label = algo)
@@ -154,12 +166,27 @@ def plot_performance(result, x):
     plt.show()
 
 
+def run(permssion_num, sample_size=3000):
+    '''
+    permission_num: choose from [22, 34, 88]
+    '''
 
-n = np.linspace(0,3000, num=11).tolist()[1:]
-result = get_result(88, n)
-avg_report(result)
-#
-# plot_performance(result, n)
+    if permssion_num not in [22, 34, 88]:
+        permssion_num = 22
 
-# plot_data(22, 'GradientBoosting')
-# plot_learning_process(88)
+    n = np.linspace(0,sample_size, num=11).tolist()[1:]
+    result = get_result(22, n)
+    # print training result
+    final_clf = avg_report(result)
+
+    # plot training performace
+    plot_learning_process(permssion_num, sample_size)
+    plot_runtime(result, n)
+
+    # plot classification result
+    plot_data(permssion_num, final_clf)
+
+
+
+run(22)
+
