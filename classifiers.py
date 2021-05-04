@@ -1,4 +1,5 @@
 import random
+import sys
 import time
 import numpy as np
 import pandas as pd
@@ -25,7 +26,6 @@ algorithms = {
 }
 
 def generate_data(permission_num):
-
     traindata = pd.read_csv('./' + str(permission_num) + '/train.csv')
     testdata = pd.read_csv('./' + str(permission_num) + '/newTest.csv')
     if permission_num == 88:
@@ -39,13 +39,12 @@ def plot_data(permission_num, algo):
     clf = algorithms[algo]
     clf.fit(X_train, y_train)
     skplt.estimators.plot_feature_importances(clf,
+                                              figsize=(5, 7),
                                               feature_names=traindata.columns.tolist(),
                                               x_tick_rotation=90,
                                               text_fontsize='small')
 
     plt.show()
-    # skplt.metrics.plot_precision_recall_curve(y_test, probas)
-    # plt.show()
 
 def plot_learning_process(permission_num, trainsize=None):
     traindata, testdata = generate_data(permission_num)
@@ -67,19 +66,17 @@ def get_train_and_test(traindata, testdata, permission_num,train_size=None):
         X = traindata.iloc[:,0:permission_num].head(train_size)
         Y = traindata.iloc[:,permission_num].head(train_size)
     else:
-        X = traindata.iloc[:,0:permission_num].head(train_size)
-        Y = traindata.iloc[:,permission_num].head(train_size)
+        X = traindata.iloc[:,0:permission_num]
+        Y = traindata.iloc[:,permission_num]
     C = testdata.iloc[:,permission_num]
     T = testdata.iloc[:,0:permission_num]
 
     traindata = np.array(X)
     trainlabel = np.array(Y)
-
     testdata = np.array(T)
     testlabel = np.array(C)
 
     return traindata, testdata, trainlabel, testlabel
-
 
 def get_result(permission_num, size_list=None):
     result = {}
@@ -123,7 +120,6 @@ def avg_report(result):
     for algo in algorithms:
         for key in result[algo].keys():
             table[key].append(sum(result[algo][key])/len(result[algo][key]))
-    print(table)
     df = pd.DataFrame.from_dict(table, orient='index', columns=list(algorithms.keys()))
     df.to_csv('result.csv')
     print(df)
@@ -186,7 +182,11 @@ def run(permssion_num, sample_size=3000):
     # plot classification result
     plot_data(permssion_num, final_clf)
 
+def main():
+    permission_num = sys.argv[1]
+    run(permission_num)
 
+if __name__ == '__main__':
+    main()
 
-run(22)
 
