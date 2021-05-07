@@ -8,13 +8,12 @@ import sklearn.ensemble as ske
 from sklearn import tree, linear_model
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import SelectFromModel
-from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.svm import LinearSVC, SVC
 import matplotlib.pyplot as plt
 import scikitplot as skplt
 import warnings
 warnings.filterwarnings('ignore')
-
 
 algorithms = {
     "DecisionTree": tree.DecisionTreeClassifier(max_depth=10),
@@ -114,7 +113,8 @@ def get_result(permission_num, size_list=None):
 
 def avg_report(result):
     table = {}
-    for key in result['DecisionTree'].keys():
+    res = list(result.keys())[0]
+    for key in result[res].keys():
         table[key] = []
 
     for algo in algorithms:
@@ -171,11 +171,13 @@ def run(permssion_num, sample_size=3000):
         permssion_num = 22
 
     n = np.linspace(0,sample_size, num=11).tolist()[1:]
+    # n = [sample_size]
     result = get_result(22, n)
     # print training result
     final_clf = avg_report(result)
 
     # plot training performace
+    plot_performance(result, n)
     plot_learning_process(permssion_num, sample_size)
     plot_runtime(result, n)
 
@@ -184,7 +186,12 @@ def run(permssion_num, sample_size=3000):
 
 def main():
     permission_num = sys.argv[1]
-    run(permission_num)
+    sample_size = sys.argv[2]
+    if not sample_size:
+        sample_size = 3000
+    if int(sample_size) > 30000:
+        sample_size = 30000
+    run(permission_num, int(sample_size))
 
 if __name__ == '__main__':
     main()
